@@ -228,16 +228,13 @@ static int ymodem_process_frame(ota_ymodem_ctx_t *ctx)
 		return OTA_YMODEM_ERR_CRC;
 	}
     
-    // 处理首包（信息包）
-	if (blk == 0U)
+    // 仅在等待文件头或结束空包时，将0号包解释为信息包。
+    // 接收固件数据时，8位包序号允许从255正常回绕到0。
+	if ((blk == 0U) &&
+	    ((ctx->state == OTA_YMODEM_STATE_WAIT_HEADER) ||
+	     (ctx->state == OTA_YMODEM_STATE_WAIT_LAST_EMPTY)))
 	{
-		if ((ctx->state == OTA_YMODEM_STATE_WAIT_HEADER) || (ctx->state == OTA_YMODEM_STATE_WAIT_LAST_EMPTY))
-		{
-			return ymodem_handle_header(ctx, data, data_len);
-		}
-
-		(void)ymodem_send_byte(&ctx->cb, YMODEM_NAK);
-		return OTA_YMODEM_ERR_SEQ;
+		return ymodem_handle_header(ctx, data, data_len);
 	}
 
 	if (ctx->state != OTA_YMODEM_STATE_RECV_DATA)

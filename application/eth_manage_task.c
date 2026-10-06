@@ -27,6 +27,7 @@ extern err_t tcpip_callback(tcpip_callback_fn function, void *ctx);
 #define READ_LOAD_TASK_LIFT_MOMENT_PCT_OFFSET 36U
 #define READ_LOAD_TASK_WEIGHT_OFFSET 40U
 #define READ_LOAD_TASK_WEIGHT_PCT_OFFSET 44U
+#define READ_LOAD_TASK_HOOK_LOWERING_HEIGHT_OFFSET 48U
 #define READ_LOAD_TASK_HEADER_LEN 20U
 #define READ_LOAD_TASK_PROTOCOL_ID_OFFSET 0U
 #define READ_LOAD_TASK_MAIN_INDEX_OFFSET 8U
@@ -39,6 +40,7 @@ static volatile bool s_load_weight_valid = false;
 static volatile float s_latest_lifting_moment = 0.0f;
 static volatile float s_latest_lifting_moment_pct = 0.0f;
 static volatile float s_latest_load_weight_pct = 0.0f;
+static volatile float s_latest_hook_lowering_height = 0.0f;
 static struct udp_pcb *s_udp_pcb = NULL;
 static uint8_t s_udp_payload[READ_LOAD_TASK_COPY_BUFFER_SIZE];
 
@@ -64,12 +66,14 @@ static bool parse_load_metrics(const uint8_t *payload,
                                float *lifting_moment,
                                float *lifting_moment_pct,
                                float *load_weight,
-                               float *load_weight_pct)
+                               float *load_weight_pct,
+                               float *hook_lowering_height)
 {
-  uint16_t required_len = READ_LOAD_TASK_FRAME_VERSION_OFFSET + READ_LOAD_TASK_WEIGHT_PCT_OFFSET + (uint16_t)sizeof(float);
+  uint16_t required_len = READ_LOAD_TASK_FRAME_VERSION_OFFSET + READ_LOAD_TASK_HOOK_LOWERING_HEIGHT_OFFSET + (uint16_t)sizeof(float);
 
   if ((payload == NULL) || (lifting_moment == NULL) || (lifting_moment_pct == NULL) ||
-      (load_weight == NULL) || (load_weight_pct == NULL) || (payload_len < required_len)) {
+      (load_weight == NULL) || (load_weight_pct == NULL) || (hook_lowering_height == NULL) ||
+      (payload_len < required_len)) {
     return false;
   }
 
@@ -94,6 +98,7 @@ static bool parse_load_metrics(const uint8_t *payload,
   *lifting_moment_pct = read_f32_le(&payload[READ_LOAD_TASK_FRAME_VERSION_OFFSET + READ_LOAD_TASK_LIFT_MOMENT_PCT_OFFSET]);
   *load_weight = read_f32_le(&payload[READ_LOAD_TASK_FRAME_VERSION_OFFSET + READ_LOAD_TASK_WEIGHT_OFFSET]);
   *load_weight_pct = read_f32_le(&payload[READ_LOAD_TASK_FRAME_VERSION_OFFSET + READ_LOAD_TASK_WEIGHT_PCT_OFFSET]);
+  *hook_lowering_height = read_f32_le(&payload[READ_LOAD_TASK_FRAME_VERSION_OFFSET + READ_LOAD_TASK_HOOK_LOWERING_HEIGHT_OFFSET]);
   return true;
 
 }
@@ -116,12 +121,14 @@ static void eth_udp_recv(void *arg,
     float lifting_moment_pct = 0.0f;
     float load_weight = 0.0f;
     float load_weight_pct = 0.0f;
+    float hook_lowering_height = 0.0f;
     if (parse_load_metrics(s_udp_payload, payload_len, &lifting_moment, &lifting_moment_pct,
-                           &load_weight, &load_weight_pct)) {
+                           &load_weight, &load_weight_pct, &hook_lowering_height)) {
       s_latest_lifting_moment = lifting_moment;
       s_latest_lifting_moment_pct = lifting_moment_pct;
       s_latest_load_weight_t = load_weight;
       s_latest_load_weight_pct = load_weight_pct;
+      s_latest_hook_lowering_height = hook_lowering_height;
       s_load_weight_valid = true;
       
       /* Write load metrics to Modbus registers */
@@ -137,12 +144,15 @@ static void eth_udp_recv(void *arg,
       if (mb_reg_write_float(REG_LOAD_WEIGHT_PCT, load_weight_pct) != ERR_OK) {
         LOG_E("Failed to write load weight percentage to Modbus register\n");
       }
+      if (mb_reg_write_float(REG_HOOK_LOWERING_HEIGHT, hook_lowering_height) != ERR_OK) {
+        LOG_E("Failed to write hook lowering height to Modbus register\n");
+      }
       
       /* Set data valid bit for load weight */
       mb_reg_write_bit(REG_DATA_VAILD, REG_DATA_VAILD_BIT_LOAD_WEIGHT, true);
       
-      LOG_D("Moment:%.3f t*m, MomentPct:%.3f%%, Weight:%.3f t, WeightPct:%.3f%%\n",
-            lifting_moment, lifting_moment_pct, load_weight, load_weight_pct);
+      LOG_D("Moment:%.3f t*m, MomentPct:%.3f%%, Weight:%.3f t, WeightPct:%.3f%%, HookDown:%.3f m\n",
+        lifting_moment, lifting_moment_pct, load_weight, load_weight_pct, hook_lowering_height);
     }
   } else {
     LOG_E("Failed to copy UDP payload\n");

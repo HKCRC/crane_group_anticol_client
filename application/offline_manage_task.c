@@ -12,6 +12,8 @@
 
 #define OFFLINE_LED_CYCLE_MS     3000U
 #define OFFLINE_LED_BLINK_MS     1000U
+#define NORMAL_LED_CYCLE_MS      2000U
+#define NORMAL_LED_ON_MS         1000U
 #define OFFLINE_TASK_PERIOD_MS    100U
 #define OFFLINE_MANAGE_PERIOD_MS 1000U
 #define OFFLINE_AUTO_REBOOT_MS   (12UL * 60UL * 60UL * 1000UL)
@@ -246,33 +248,27 @@ void update_offline_manage()
     if (display_event != NO_OFFLINE)
     {
         build_offline_event_msg();
-        SET_HEARTBEAT_LED(GPIO_PIN_SET);
-        uint32_t phase = GET_TICK_TIME() % OFFLINE_LED_CYCLE_MS;
-        if (phase >= OFFLINE_LED_BLINK_MS)
+        uint32_t phase = now % OFFLINE_LED_CYCLE_MS;
+        uint32_t blink_count = offline_manage[display_event].group_id;
+        GPIO_PinState led_state = STATUS_LED_OFF;
+        if ((phase < OFFLINE_LED_BLINK_MS) && (blink_count > 0U))
         {
-            SET_OFFLINE_LED(GPIO_PIN_SET);
-        }
-        else
-        {
-            uint32_t half_period = OFFLINE_LED_BLINK_MS / (2U * offline_manage[display_event].group_id);
+            uint32_t half_period = OFFLINE_LED_BLINK_MS / (2U * blink_count);
             if (half_period == 0U)
             {
                 half_period = 1U;
             }
             uint32_t slot = phase / half_period;
-            GPIO_PinState led_state = ((slot % 2U) == 0U) ? GPIO_PIN_SET : GPIO_PIN_RESET;
-            SET_OFFLINE_LED(led_state);
-        } 
-    }else{
-        SET_OFFLINE_LED(GPIO_PIN_RESET);
-        
-        // Toggle HEARTBEAT LED every 1 second when no error
-        static uint32_t last_heartbeat_time = 0;
-        if (now - last_heartbeat_time >= 1000U)
-        {
-            last_heartbeat_time = now;
-            TOGGLE_HEARTBEAT_LED();
+            led_state = ((slot % 2U) == 0U) ? STATUS_LED_ON : STATUS_LED_OFF;
         }
+        SET_STATUS_LED(led_state);
+    }
+    else
+    {
+        uint32_t phase = now % NORMAL_LED_CYCLE_MS;
+        GPIO_PinState led_state =
+            (phase < NORMAL_LED_ON_MS) ? STATUS_LED_ON : STATUS_LED_OFF;
+        SET_STATUS_LED(led_state);
     }
 
 } 
@@ -283,7 +279,6 @@ void offline_manage_task(void *argument)
     const TickType_t xPeriod = pdMS_TO_TICKS(OFFLINE_TASK_PERIOD_MS);
     TickType_t xLastWakeTime = xTaskGetTickCount();
     uint32_t boot_tick = GET_TICK_TIME();
-    uint32_t hreatbeat_tick = boot_tick;
     for (;;)
     {   
         vTaskDelayUntil(&xLastWakeTime, xPeriod);
@@ -295,11 +290,6 @@ void offline_manage_task(void *argument)
             vTaskDelay(pdMS_TO_TICKS(3000));
             board_system_reset_force();
         }
-        if((uint32_t)(now - hreatbeat_tick) >= 1000){
-            HAL_GPIO_TogglePin(LED1_GPIO_Port, LED1_Pin);
-            hreatbeat_tick = now;
-        }
-
         update_offline_manage();
     }
 }

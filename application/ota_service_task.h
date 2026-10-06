@@ -15,6 +15,7 @@ extern "C" {
 #define OTA_META_MAGIC                   0x4F544131U
 #define OTA_QUEUE_DEPTH                  8U
 #define OTA_FLASHWORD_SIZE               32U
+#define OTA_SESSION_TIMEOUT_MS           (30U * 60U * 1000U)
 
 #define OTA_CHUNK_MAX_SIZE 1030U
 
@@ -61,6 +62,7 @@ typedef struct
 	ota_service_state_t state;
 	int last_error;
 	uint8_t reboot_pending;
+	uint32_t session_start_tick;
 
 	osMessageQueueId_t rx_queue;
 	osThreadId_t consumer_task;

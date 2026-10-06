@@ -5,9 +5,15 @@
 #include "main.h"
 
 #define GET_TICK_TIME() osKernelGetTickCount()
-#define SET_OFFLINE_LED(STATE) HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, (STATE)) 
-#define SET_HEARTBEAT_LED(STATE) HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, (STATE))
-#define TOGGLE_HEARTBEAT_LED() HAL_GPIO_TogglePin(LED1_GPIO_Port, LED1_Pin)
+#define STATUS_LED_ON  GPIO_PIN_SET
+#define STATUS_LED_OFF GPIO_PIN_RESET
+#define SET_STATUS_LED(STATE)                                                     \
+    do                                                                            \
+    {                                                                             \
+        GPIO_PinState status_led_state = (STATE);                                 \
+        HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, status_led_state);             \
+        HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, status_led_state);             \
+    } while (0)
 
 /* ============================================================================
  * PROJECT-SPECIFIC OFFLINE EVENT DEFINITIONS

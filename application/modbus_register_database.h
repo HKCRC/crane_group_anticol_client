@@ -33,6 +33,7 @@ extern "C" {
 #define REG_LIFTING_MOMENT_PCT 0x000C
 #define REG_LOAD_WEIGHT        0x000E
 #define REG_LOAD_WEIGHT_PCT    0x0010
+#define REG_HOOK_LOWERING_HEIGHT 0x0012
 #define REG_HOLDING_SIZE       0x0020
 
 

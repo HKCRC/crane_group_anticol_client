@@ -70,6 +70,7 @@ int ota_start_transfer_callback(void)
 	g_ota.write_addr = g_ota.temp_base;
 	g_ota.cache_len = 0U;
 	g_ota.crc32 = ota_init_crc32();
+	g_ota.session_start_tick = (uint32_t)xTaskGetTickCount();
 	g_ota.state = OTA_SVC_WAIT_START;
 
 	offline_manage_disable_all_event();
@@ -118,6 +119,7 @@ static void ota_reset_runtime_state(ota_service_t *svc)
 	svc->write_addr = svc->temp_base;
 	svc->cache_len = 0U;
 	svc->crc32 = ota_init_crc32();
+	svc->session_start_tick = 0U;
 }
 
 static uint32_t ota_update_crc32(uint32_t crc, const uint8_t *data, uint32_t len)
@@ -406,6 +408,19 @@ static void ota_consumer_task(void *argument)
         vTaskDelay(pdMS_TO_TICKS(10));
 		FEED_SYS_WATCHDOG();
 
+		if (svc->state != OTA_SVC_IDLE)
+		{
+			uint32_t elapsed_ticks =
+				(uint32_t)xTaskGetTickCount() - svc->session_start_tick;
+			if (elapsed_ticks >= (uint32_t)pdMS_TO_TICKS(OTA_SESSION_TIMEOUT_MS))
+			{
+				LOG_E("OTA session timeout after 30 minutes, exiting OTA mode\r\n");
+				ota_reset_runtime_state(svc);
+				sendc_acc = 0U;
+				continue;
+			}
+		}
+
 		osStatus_t st = osMessageQueueGet(svc->rx_queue, &msg, NULL, poll_ms);
 		if (st == osOK)
 		{
@@ -455,6 +470,7 @@ int ota_init_service(uint32_t temp_fw_addr, uint32_t fw_max_size)
 	g_ota.state = OTA_SVC_IDLE;
 	g_ota.last_error = 0;
 	g_ota.reboot_pending = 0U;
+	g_ota.session_start_tick = 0U;
 
 	ota_init_ymodem_procotol(&g_ota);
 

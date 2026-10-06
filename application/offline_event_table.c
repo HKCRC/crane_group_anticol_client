@@ -46,6 +46,7 @@ void read_load_weight_offline_first(void)
     mb_reg_write_float(REG_LOAD_WEIGHT_PCT, 0.0f);
     mb_reg_write_float(REG_LIFTING_MOMENT, 0.0f);
     mb_reg_write_float(REG_LIFTING_MOMENT_PCT, 0.0f);
+    mb_reg_write_float(REG_HOOK_LOWERING_HEIGHT, 0.0f);
 }
 /* ============================================================================
  * PROJECT-SPECIFIC OFFLINE EVENT TABLE
