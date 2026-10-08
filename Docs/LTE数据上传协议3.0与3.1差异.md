@@ -13,7 +13,7 @@ CONFIG_UPLOAD_PROTOCOL_VERSION
 - `0x30`：协议 3.0，不包含吊钩下降高度。
 - `0x31`：协议 3.1，包含吊钩下降高度。
 
-当前工程默认值在 `application/report_atc_data_task.h` 中定义为 `0x31`。修改版本后必须重新编译和烧录固件，运行期间不能动态切换。
+当前工程默认值在 `application/report_atc_data_task.h` 中定义为 `0x30`。修改版本后必须重新编译和烧录固件，运行期间不能动态切换。
 
 ## 2. 共同规则
 

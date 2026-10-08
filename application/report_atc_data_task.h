@@ -8,7 +8,7 @@
  * 0x31 -> protocol 3.1 (with hook lowering height)
  */
 #ifndef CONFIG_UPLOAD_PROTOCOL_VERSION
-#define CONFIG_UPLOAD_PROTOCOL_VERSION 0x31U
+#define CONFIG_UPLOAD_PROTOCOL_VERSION 0x30U
 #endif
 
 void report_atc_data_task(void *argument);
