@@ -14,11 +14,14 @@
 extern UART_HandleTypeDef huart8;
 
 #define LTE_FRAME_HEADER 0xA5U
+#define LTE_PROTOCOL_V21 0x21U
 #define LTE_PROTOCOL_V30 0x30U
 #define LTE_PROTOCOL_V31 0x31U
 
-#if ((CONFIG_UPLOAD_PROTOCOL_VERSION != LTE_PROTOCOL_V30) && (CONFIG_UPLOAD_PROTOCOL_VERSION != LTE_PROTOCOL_V31))
-#error "CONFIG_UPLOAD_PROTOCOL_VERSION must be 0x30 or 0x31"
+#if ((CONFIG_UPLOAD_PROTOCOL_VERSION != LTE_PROTOCOL_V21) && \
+     (CONFIG_UPLOAD_PROTOCOL_VERSION != LTE_PROTOCOL_V30) && \
+     (CONFIG_UPLOAD_PROTOCOL_VERSION != LTE_PROTOCOL_V31))
+#error "CONFIG_UPLOAD_PROTOCOL_VERSION must be 0x21, 0x30 or 0x31"
 #endif
 
 #if (CONFIG_UPLOAD_PROTOCOL_VERSION == LTE_PROTOCOL_V31)
@@ -239,10 +242,15 @@ void report_atc_data_task(void *argument)
     (void)argument;
     const TickType_t period = pdMS_TO_TICKS(1000U);
     TickType_t last_wake_time = xTaskGetTickCount();
-    uint8_t frame[LTE_FRAME_LEN]; // [header][protocol][capability][data_len][payload][crc16]
+    uint8_t frame[LTE_FRAME_LEN]; // [header][protocol][sequence/capability][data_len][payload][crc16]
+#if (CONFIG_UPLOAD_PROTOCOL_VERSION == LTE_PROTOCOL_V21)
+    uint8_t packet_seq = 0U;
+#endif
     frame[0] = LTE_FRAME_HEADER;
     frame[1] = CONFIG_UPLOAD_PROTOCOL_VERSION;
+#if (CONFIG_UPLOAD_PROTOCOL_VERSION != LTE_PROTOCOL_V21)
     frame[2] = LTE_CAPABILITY_FLAG;
+#endif
     frame[3] = LTE_DATA_LEN;
 
     for (;;) {
@@ -257,6 +265,10 @@ void report_atc_data_task(void *argument)
 
         // send_hourly_4g_command();
 
+#if (CONFIG_UPLOAD_PROTOCOL_VERSION == LTE_PROTOCOL_V21)
+        frame[2] = packet_seq;
+#endif
+
         // pack data
         pack_neighbor_data(&frame[4]);
 
@@ -267,5 +279,9 @@ void report_atc_data_task(void *argument)
 
         // transmit via UART8 (blocking)
         neighbor_report_interface_send(frame, sizeof(frame));
+
+#if (CONFIG_UPLOAD_PROTOCOL_VERSION == LTE_PROTOCOL_V21)
+        packet_seq++;
+#endif
     }
 }
